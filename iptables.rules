@@ -1,0 +1,71 @@
+*nat
+:PREROUTING ACCEPT [0:0]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A PREROUTING -d <proxy IP>/32 -p tcp -m tcp --dport <RDP port> -j DNAT --to-destination <server IP>
+# -A OUTPUT -d <proxy IP>/32 -j DNAT --to-destination <server IP>
+# -A POSTROUTING -d <server IP>/32 -j SNAT --to-source <proxy IP>
+-A POSTROUTING -d <server IP>/32 -j MASQUERADE
+COMMIT
+
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+:FW-1-INPUT - [0:0]
+#:rdpban - [0:0]
+:checked - [0:0]
+:portban - [0:0]
+:portscan - [0:0]
+:in_phase_2 - [0:0]
+:in_phase_3 - [0:0]
+:in_phase_4 - [0:0]
+:wrong_code - [0:0]
+:reset_knock - [0:0]
+-A INPUT -i lo -j ACCEPT
+-A INPUT -j portscan
+#-A INPUT -j rdpban
+-A INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p udp -m udp --dport <#1 UDP> -m recent --set --name phase1 --rsource -j RETURN
+-A INPUT -p udp -m udp --dport <#2 UDP> -m recent --rcheck --seconds 5 --name phase1 --rsource -g in_phase_2
+-A INPUT -p udp -m udp --dport <#3 UDP> -m recent --rcheck --seconds 5 --name phase2 --rsource -g in_phase_3
+-A INPUT -p udp -m udp --dport <#4 UDP> -m recent --rcheck --seconds 5 --name phase3 --rsource -g in_phase_4
+-A INPUT -p udp -m multiport --dports <#1 UDP>,<#2 UDP>,<#3 UDP>,<#4 UDP> -j wrong_code
+-A INPUT -p tcp -m recent --update --seconds 604800 --hitcount 5 --rttl --name ipban --mask 255.255.255.0 --rsource -j DROP
+-A INPUT -p tcp -m tcp --dport <SSH port> -m conntrack --ctstate NEW -m hashlimit --hashlimit-upto 1/hour --hashlimit-burst 3 --hashlimit-mode srcip --hashlimit-name ssh --hashlimit-htable-expire 120000 -j ACCEPT
+-A INPUT -p tcp -m recent --set --name ipban --mask 255.255.255.0 --rsource
+-A INPUT -p tcp -m tcp --dport <SSH port> -j DROP
+-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+-A FORWARD -s <server IP>/32 -m conntrack --ctstate NEW -j ACCEPT
+-A FORWARD -d <server IP>/32 -m conntrack --ctstate NEW -m recent --rcheck --seconds 60 --name phase4 --rsource -j checked
+-A FW-1-INPUT -p tcp -m tcp --dport <SSH port> -m state --state NEW -j ACCEPT
+-A checked -j reset_knock
+-A checked -j ACCEPT
+-A wrong_code -j portban
+-A wrong_code -j reset_knock
+
+-A in_phase_2 -m recent --remove --name phase1 --rsource
+-A in_phase_2 -m recent --set --name phase2 --rsource
+-A in_phase_3 -m recent --remove --name phase2 --rsource
+-A in_phase_3 -m recent --set --name phase3 --rsource
+-A in_phase_4 -m recent --remove --name phase3 --rsource
+-A in_phase_4 -m recent --set --name phase4 --rsource
+
+#-A rdpban -m recent --update --seconds 86400 --hitcount 20 --rttl --name rdpban --mask 255.255.255.0 --rsource -j DROP
+#-A rdpban -m recent --remove --name rdpban --mask 255.255.255.0 --rsource
+#-A rdpban -p tcp -m tcp --dport <RDP port> -m recent --set --name rdpban --mask 255.255.255.0 --rsource -j DROP
+
+-A portban -m recent --update --seconds 604800 --name portban --mask 255.255.255.0 --rsource -j DROP
+-A portban -m recent --remove --name portban --mask 255.255.255.0 --rsource
+-A portban -p udp -m multiport --dports <#1 UDP>,<#2 UDP>,<#3 UDP>,<#4 UDP> -m recent --set --name portban --mask 255.255.255.0 --rsource -j DROP
+
+-A portscan -m recent --update --seconds 604800 --name portscan --mask 255.255.255.0 --rsource -j DROP
+-A portscan -m recent --remove --name portscan --mask 255.255.255.0 --rsource
+-A portscan -p udp -m multiport --dports <#1 UDP-1>,<#1 UDP+1>,<#2 UDP-1>,<#2 UDP+1> -m recent --set --name portscan --mask 255.255.255.0 --rsource -j DROP
+
+-A reset_knock -m recent --remove --name phase1 --rsource
+-A reset_knock -m recent --remove --name phase2 --rsource
+-A reset_knock -m recent --remove --name phase3 --rsource
+-A reset_knock -m recent --remove --name phase4 --rsource
+COMMIT
