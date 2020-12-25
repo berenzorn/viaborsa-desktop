@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -41,7 +41,6 @@ namespace viaborsa {
                 "disable themes:i:0",
                 "disable wallpaper:i:1",
                 "displayconnectionbar:i:1",
-                "domain:s:fs",                      // FS
                 "enableworkspacereconnect:i:1",
                 "keyboardhook:i:2",
                 "negotiate security layer:i:1",
@@ -68,7 +67,7 @@ namespace viaborsa {
                 File.WriteAllLines(name, rdp_array);
             }
             catch (UnauthorizedAccessException) {
-                MessageBox.Show("Error. Can't create rdp-file.");
+                MessageBox.Show("Ошибка 12. Не могу создать rdp-файл.");
                 Application.Exit();
             }
             using (StreamWriter file = new StreamWriter(name, true))
@@ -87,7 +86,7 @@ namespace viaborsa {
                     proxy_name = dns_names[0];
                 }
                 catch (SocketException) {
-                    MessageBox.Show("Error. Internet-connection don't working.");
+                    MessageBox.Show("Ошибка 11. Проблема с интернет-соединением.");
                     Application.Exit();
                 }
             }
@@ -97,7 +96,7 @@ namespace viaborsa {
                     proxy_name = dns_names[1];
                 }
                 catch (SocketException) {
-                    MessageBox.Show("Error. Internet-connection don't working.");
+                    MessageBox.Show("Ошибка 11. Проблема с интернет-соединением.");
                     Application.Exit();
                 }
             }
